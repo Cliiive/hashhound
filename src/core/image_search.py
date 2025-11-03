@@ -1,5 +1,6 @@
 import pytsk3
 from pathlib import Path
+import time
 from core.logger import get_logger
 
 def search_image_for_hashes(image_path, hashes):
@@ -57,6 +58,15 @@ def walk_fs(fs, path="/"):
 
 def search_filesystem(fs, hashes):
     logger = get_logger()
+    
+    processed_files = 0
+    matches_found = 0
+    last_progress_time = time.time()
+    progress_interval = 1.0  # Report progress every 5 seconds
+    start_time = time.time()
+    
+    logger.info("Starting filesystem search...")
+    
     for file_path in walk_fs(fs):
         try:
             logger.debug(f"Processing file: {file_path}")
@@ -66,6 +76,17 @@ def search_filesystem(fs, hashes):
             import hashlib
             file_hash = hashlib.sha256(data).hexdigest()
             if file_hash in hashes:
-                logger.info(f"Found matching file for hash {file_hash} at {file_path}")
+                matches_found += 1
+                logger.info(f"Found matching file for hash << {file_hash[0:5]}...{file_hash[-6:-1]} >> at {file_path}")
         except Exception as e:
             logger.warning(f"Error processing file {file_path}: {e}")
+        
+        processed_files += 1
+        
+        # Report progress periodically with rate information
+        current_time = time.time()
+        if current_time - last_progress_time >= progress_interval:
+            elapsed_time = current_time - start_time
+            files_per_second = processed_files / elapsed_time
+            logger.info(f"Search progress: {processed_files} files processed, {matches_found} matches found ({files_per_second:.1f} files/sec)")
+            last_progress_time = current_time
