@@ -98,11 +98,12 @@ def create_database_session(db_path: str) -> Session:
     db_conn = open_database(db_path)
     return db_conn.get_session()
 
-def get_hashes(session: Session) -> list:
+def get_hashes() -> list[str]:
     """Get all hashes from the VIC_HASHES table."""
+    session = create_database_session("test_files/hashes.db")
     result = session.query(VicHashes).all()
-    # contvert to list of hash values
-    return [row.hash_value for row in result]
+    # contvert to list of hash values (strings)
+    return [str(row.hash_value) for row in result]
 
 class VicHashes(Base):
     __tablename__ = 'VIC_HASHES'

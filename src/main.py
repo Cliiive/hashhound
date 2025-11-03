@@ -1,7 +1,7 @@
 from core.arg_parser import parse_arguments
-from core.database import open_database, create_database_session, VicHashes
+from core.database import get_hashes
 from core.logger import get_logger
-from sqlalchemy import inspect
+from core.image_search import search_image_for_hashes
 import sys
 
 def print_params(evidence_path, hash_db_path, investigator_name, output_path, logger):
@@ -30,19 +30,16 @@ def main():
     print_params(evidence_path, hash_db_path, investigator_name, output_path, logger)
     
     try:
-        session = create_database_session("test_files/hashes.db")
+        hashes = get_hashes()
+        logger.debug(f"Retrieved {len(hashes)} records from VIC_HASHES table.")
+        for record in hashes:
+            logger.debug(f"Hash : {record}")
     except Exception as e:
         logger.error(f"Failed to create database session: {e}")
         return 1
-    
-    results = session.query(VicHashes).all()
-    
-    if debug_mode:
-        logger.debug(f"Retrieved {len(results)} records from VIC_HASHES table.")
-        # Print the results
-        for record in results:
-            logger.debug(f"Record: {record.hash_value}")
-    
+
+    search_image_for_hashes(evidence_path, hashes)
+        
     return 0
     
 

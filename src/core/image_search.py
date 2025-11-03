@@ -1,7 +1,8 @@
 import pytsk3
-from .logger import get_logger
+from pathlib import Path
+from core.logger import get_logger
 
-def search_image_for_hash(image_path, target_hash):
+def search_image_for_hashes(image_path, hashes):
     """
     Search a disk image for a specific hash value.
     
@@ -20,41 +21,51 @@ def search_image_for_hash(image_path, target_hash):
             volume = pytsk3.Volume_Info(img)
             # Iterate through partitions
             for partition in volume:
-                if partition.len > 2048:  # Skip small partitions
-                    logger.info(f"Searching partition at offset {partition.start}")
-                    try:
-                        # Create filesystem for this partition
-                        fs = pytsk3.FS_Info(img, offset=partition.start * volume.info.block_size)
-                        search_filesystem(fs, target_hash)
-                    except Exception as e:
-                        logger.error(f"Could not access filesystem on partition at offset {partition.start}: {e}")
+               
+                logger.info(f"Searching partition at offset {partition.start}")
+                try:
+                    # Create filesystem for this partition
+                    fs = pytsk3.FS_Info(img, offset=partition.start * volume.info.block_size)
+                    search_filesystem(fs, hashes)
+                except Exception as e:
+                    logger.error(f"Could not access filesystem on partition at offset {partition.start}: {e}")
         except:
             # No partition table found, try as single filesystem
             logger.info("No partition table found, treating as single filesystem")
             fs = pytsk3.FS_Info(img)
-            search_filesystem(fs, target_hash)
+            search_filesystem(fs, hashes)
             
     except Exception as e:
         logger.error(f"Error opening image {image_path}: {e}")
 
-def search_filesystem(fs, target_hash):
-    """Search a single filesystem for the target hash."""
+def walk_fs(fs, path="/"):
+    try:
+        directory = fs.open_dir(path)
+    except IOError:
+        return
+    for entry in directory:
+        if not hasattr(entry, "info") or not entry.info.name:
+            continue
+        name = entry.info.name.name.decode(errors="ignore")
+        if name in [".", ".."] or name.startswith("$"):
+            continue
+        full_path = "/".join([path.strip("/"), name]).replace("//", "/")
+        if entry.info.meta and entry.info.meta.type == pytsk3.TSK_FS_META_TYPE_DIR:
+            yield from walk_fs(fs, "/" + full_path)
+        else:
+            yield "/" + full_path
+
+def search_filesystem(fs, hashes):
     logger = get_logger()
-    
-    # Walk through the filesystem
-    for dirpath, dirnames, filenames in fs.walk('/'):
-        for filename in filenames:
-            file_path = f"{dirpath}/{filename}"
-            try:
-                file_obj = fs.open(file_path)
-                file_data = file_obj.read_random(0, file_obj.info.meta.size)
-                
-                # Compute hash (assuming SHA256 for this example)
-                import hashlib
-                file_hash = hashlib.sha256(file_data).hexdigest()
-                
-                if file_hash == target_hash:
-                    logger.info(f"Found matching file: {file_path}")
-            
-            except Exception as e:
-                logger.error(f"Error reading file {file_path}: {e}")
+    for file_path in walk_fs(fs):
+        try:
+            logger.debug(f"Processing file: {file_path}")
+            file_obj = fs.open(file_path)
+            size = file_obj.info.meta.size
+            data = file_obj.read_random(0, size) if size else b""
+            import hashlib
+            file_hash = hashlib.sha256(data).hexdigest()
+            if file_hash in hashes:
+                logger.info(f"Found matching file for hash {file_hash} at {file_path}")
+        except Exception as e:
+            logger.warning(f"Error processing file {file_path}: {e}")
