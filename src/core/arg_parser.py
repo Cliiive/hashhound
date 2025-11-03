@@ -45,6 +45,12 @@ Examples:
             type=str,
             help='Target path for the PDF report'
         )
+        
+        self.parser.add_argument(
+            '--debug',
+            action='store_true',
+            help='Enable debug mode for verbose output'
+        )
     
     def parse_args(self):
         """Parse and validate arguments"""
@@ -63,9 +69,6 @@ Examples:
         if not os.path.exists(evidence_path):
             self._error(f"Evidence directory does not exist: {evidence_path}")
         
-        if not os.path.isdir(evidence_path):
-            self._error(f"Evidence path is not a directory: {evidence_path}")
-        
         if not os.access(evidence_path, os.R_OK):
             self._error(f"Evidence directory is not readable: {evidence_path}")
     
@@ -79,9 +82,6 @@ Examples:
         
         if not os.access(hash_db_path, os.R_OK):
             self._error(f"Hash database file is not readable: {hash_db_path}")
-        
-        if not hash_db_path.lower().endswith('.csv'):
-            self._error(f"Hash database file must be a CSV file: {hash_db_path}")
     
     def _validate_investigator_name(self, investigator):
         """Validate investigator name is not empty"""
