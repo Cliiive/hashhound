@@ -5,6 +5,7 @@ from core.image_search import search_image_for_hashes
 from core.pdf_generator import generate_forensic_report
 import sys
 import os
+from core.ascii_art import print_ascii_art
 
 def print_params(evidence_path, hash_db_path, investigator_name, output_path, logger):
     logger.info("Parsed Command Line Arguments:")
@@ -16,6 +17,8 @@ def print_params(evidence_path, hash_db_path, investigator_name, output_path, lo
 def main():
     # Parse command line arguments
     args = parse_arguments()
+    
+    print_ascii_art()
     
     # Access parsed arguments
     evidence_path = args.evidence
@@ -39,6 +42,9 @@ def main():
     except Exception as e:
         logger.error(f"Failed to retrieve hashes from database: {e}")
         return 1
+    
+    # wait for user to press enter
+    input("\n\nPress Enter to start the forensic analysis...")
 
     # Perform the forensic search
     logger.info("Starting forensic analysis...")
