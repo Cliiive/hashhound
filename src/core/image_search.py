@@ -87,11 +87,20 @@ def extract_file_metadata(file_obj, file_path):
     
     return size, file_name, created_time, modified_time, accessed_time
 
-def compute_file_hash(file_obj, size):
-    """Compute SHA256 hash of file data."""
+def compute_file_hash(file_obj, size, hash_type="sha256"):
+    """Compute hash of file data based on specified hash type."""
     import hashlib
+    
     data = file_obj.read_random(0, size) if size else b""
-    return hashlib.sha256(data).hexdigest()
+    
+    if hash_type == "sha256":
+        return hashlib.sha256(data).hexdigest()
+    elif hash_type == "md5":
+        return hashlib.md5(data).hexdigest()
+    elif hash_type == "sha1":
+        return hashlib.sha1(data).hexdigest()
+    else:
+        raise ValueError(f"Unsupported hash type: {hash_type}")
 
 def create_finding(file_hash, file_path, size, file_name, partition_offset, 
                   created_time, modified_time, accessed_time):
@@ -117,13 +126,20 @@ def process_single_file(file_path, fs, hashes, partition_offset, logger):
         size, file_name, created_time, modified_time, accessed_time = extract_file_metadata(file_obj, file_path)
         
         # Compute hash
-        file_hash = compute_file_hash(file_obj, size)
+        file_hash_sha265 = compute_file_hash(file_obj, size, hash_type="sha256")
+        file_hash_md5 = compute_file_hash(file_obj, size, hash_type="md5")
+        file_hash_sha1 = compute_file_hash(file_obj, size, hash_type="sha1")
         
-        # Check if hash matches
-        if file_hash in hashes:
-            logger.info(f"Found matching file for hash << {file_hash[0:5]}...{file_hash[-6:-1]} >> at {file_path}")
-            return create_finding(file_hash, file_path, size, file_name, partition_offset,
-                                created_time, modified_time, accessed_time)
+        computed_hashes = {file_hash_sha265, file_hash_md5, file_hash_sha1}
+        target_hashes = set(hashes)  # ensure it's a set
+        
+        # Check if any computed hash matches any of the target hashes
+        matches = computed_hashes & target_hashes
+        if matches:
+            matched_hash = next(iter(matches))
+            logger.info(f"Found matching file for hash << {matched_hash[:5]}...{matched_hash[-5:]} >> at {file_path}")
+            return create_finding(matched_hash, file_path, size, file_name, partition_offset,
+                      created_time, modified_time, accessed_time)
         
         return None
         
