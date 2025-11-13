@@ -5,6 +5,27 @@ import datetime
 from core.logger import get_logger
 from core.models import Finding
 from typing import List
+from concurrent.futures import ThreadPoolExecutor
+import sys
+
+FOUND_FILES = 0
+SEARCHED_FILES = 0
+STOP_LOGGING = False
+
+def run_search_with_logging(image_path, hashes):
+    import time
+    global STOP_LOGGING
+    start_time = time.time()
+    STOP_LOGGING = False
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        f1 = executor.submit(search_image_for_hashes, image_path, hashes)
+        f2 = executor.submit(log_stats, start_time)
+
+        result = f1.result()  # blocks until done
+        STOP_LOGGING = True   # signal logger thread to stop
+        f2.result()           # wait for it to finish cleanly
+        return result
 
 def search_image_for_hashes(image_path, hashes) -> List[Finding]:
     """
@@ -154,12 +175,13 @@ def report_progress(processed_files, matches_found, start_time, last_progress_ti
     if current_time - last_progress_time >= progress_interval:
         elapsed_time = current_time - start_time
         files_per_second = processed_files / elapsed_time
-        logger.info(f"Search progress: {processed_files} files processed, {matches_found} matches found ({files_per_second:.1f} files/sec)")
+        logger.debug(f"Search progress: {processed_files} files processed, {matches_found} matches found ({files_per_second:.1f} files/sec)")
         return current_time
     return last_progress_time
 
 def search_filesystem(fs, hashes, partition_offset=None) -> List[Finding]:
     """Search a filesystem for matching hashes and return findings."""
+    global FOUND_FILES, SEARCHED_FILES
     logger = get_logger()
     findings = []
     
@@ -180,6 +202,9 @@ def search_filesystem(fs, hashes, partition_offset=None) -> List[Finding]:
             matches_found += 1
         
         processed_files += 1
+
+        SEARCHED_FILES = processed_files
+        FOUND_FILES = matches_found
         
         # Report progress periodically
         last_progress_time = report_progress(processed_files, matches_found, start_time, 
@@ -188,6 +213,53 @@ def search_filesystem(fs, hashes, partition_offset=None) -> List[Finding]:
     # Final report
     total_time = time.time() - start_time
     avg_rate = processed_files / total_time if total_time > 0 else 0
+    print("\n")
     logger.info(f"Search completed: {processed_files} files processed, {matches_found} matches found in {total_time:.1f}s (avg: {avg_rate:.1f} files/sec)")
     
     return findings
+
+#### LOGGING ####
+
+# ANSI color codes
+RESET = "\033[0m"
+BOLD = "\033[1m"
+RED = "\033[31m"
+GREEN = "\033[32m"
+YELLOW = "\033[33m"
+CYAN = "\033[36m"
+MAGENTA = "\033[35m"
+
+def format_number(n):
+    return f"{n:,}"
+
+def log_stats(start_time):
+    global FOUND_FILES, SEARCHED_FILES, STOP_LOGGING
+    time.sleep(0.5)
+    
+    # Print table header once
+    header = (
+        f"{BOLD}{CYAN}|| {'START TIME':^10} || {'ELAPSED':^10} || "
+        f"{'FOUND FILES':^15} || {'SEARCHED FILES':^15} ||{RESET}"
+    )
+    separator = f"{BOLD}{CYAN}||{'_'*12}||{'_'*12}||{'_'*17}||{'_'*17}||{RESET}"
+    
+    print("\n" + header)
+    print(separator)
+    
+    while not STOP_LOGGING:
+        elapsed = time.time() - start_time
+        elapsed_str = f"{int(elapsed//3600):02}:{int((elapsed%3600)//60):02}:{int(elapsed%60):02}"
+        
+        line = (
+            f"{BOLD}{CYAN}||{RESET} "
+            f"{YELLOW}{time.strftime('%H:%M:%S', time.localtime(start_time)):^10}{RESET} || "
+            f"{MAGENTA}{elapsed_str:^10}{RESET} || "
+            f"{GREEN}{format_number(FOUND_FILES):^15}{RESET} || "
+            f"{RED}{format_number(SEARCHED_FILES):^15}{RESET} ||"
+        )
+        
+        # Overwrite previous line
+        sys.stdout.write(f"\r{line}")
+        sys.stdout.flush()
+        time.sleep(0.2)
+    print("\n")

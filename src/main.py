@@ -1,7 +1,7 @@
 from core.arg_parser import parse_arguments
 from core.database import get_hashes
 from core.logger import get_logger
-from core.image_search import search_image_for_hashes
+from core.image_search import search_image_for_hashes, run_search_with_logging
 from core.pdf_generator import generate_forensic_report
 import sys
 import os
@@ -44,11 +44,11 @@ def main():
         return 1
     
     # wait for user to press enter
-    input("\n\nPress Enter to start the forensic analysis...")
+    input("\n\nPlease check your parameters, then press Enter to start the forensic analysis.\n")
 
     # Perform the forensic search
     logger.info("Starting forensic analysis...")
-    findings = search_image_for_hashes(evidence_path, hashes)
+    findings = run_search_with_logging(evidence_path, hashes)
     
     logger.info(f"Analysis completed. Found {len(findings)} matching files.")
     
