@@ -18,13 +18,16 @@
 
 ## Overview
 
-**HashHound** is a professional digital forensic analysis tool designed for investigating disk images by comparing file hashes against a reference database. It automates the process of identifying known files within evidence images and generates comprehensive forensic reports suitable for legal proceedings.
+**HashHound** is a digital forensic analysis tool designed for investigating disk images by comparing file hashes against a reference database. It automates the process of identifying known files within evidence images and generates comprehensive forensic reports suitable for legal proceedings.
 
 The tool is particularly useful for:
 - Digital forensic investigations
-- Evidence analysis in legal cases
 - Identifying known files in disk images
 - Generating professional documentation for court proceedings
+
+## Disclaimer
+
+HashHound performs automated analysis and can produce incorrect, incomplete, or misleading results. All findings must be manually verified and should not be treated as authoritative, legally reliable, or inherently true. Users are fully responsible for validating outputs before relying on them in investigative or legal contexts.
 
 ## Features
 
@@ -273,5 +276,3 @@ Copyright (c) 2025 Jonas Sasowski
   - Real-time progress monitoring
 
 ---
-
-**Note**: This tool is designed for legitimate forensic investigations and legal proceedings. Users are responsible for ensuring compliance with applicable laws and regulations regarding digital evidence collection and analysis.
